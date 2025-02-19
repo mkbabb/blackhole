@@ -25,23 +25,21 @@ SOA_RECORD: Final[SOA] = SOA(
     rname="hostmaster.romulan.zone.",
     times=(
         202502191,  # Serial (YYYYMMDDnum)
-        7200,       # Refresh
-        900,        # Retry
-        1209600,    # Expire
-        86400       # Minimum
-    )
+        7200,  # Refresh
+        900,  # Retry
+        1209600,  # Expire
+        86400,  # Minimum
+    ),
 )
 
-NS_RECORDS: Final[list[NS]] = [
-    NS("blackhole.romulan.zone.")
-]
+NS_RECORDS: Final[list[NS]] = [NS("blackhole.romulan.zone.")]
 
 
 class BlackholeResolver(BaseResolver):
     """
     DNS resolver that returns NXDOMAIN for all queries except NS and SOA.
     """
-    
+
     @override
     def resolve(self, request: DNSRecord, handler) -> DNSRecord:
         """Handle DNS queries by returning NXDOMAIN for everything except NS and SOA."""
@@ -49,43 +47,43 @@ class BlackholeResolver(BaseResolver):
             qname = request.q.qname
             qtype = request.q.qtype
             qt = QTYPE[qtype]
-            
+
             logger.info(f"Received query for {qname} with type {qt}")
-            
+
             # Prepare the DNS response
             reply = DNSRecord(
                 DNSHeader(
                     id=request.header.id,
-                    qr=1,     # QR: 1 (response)
-                    aa=1,     # AA: 1 (authoritative)
-                    ra=0,     # RA: 0 (recursion not available)
+                    qr=1,  # QR: 1 (response)
+                    aa=1,  # AA: 1 (authoritative)
+                    ra=0,  # RA: 0 (recursion not available)
                 ),
                 q=request.q,
             )
-            
+
             # Always add SOA to authority section for NXDOMAIN responses
             if qt != 'SOA':
                 self._add_soa_to_authority(reply)
-            
+
             domain_str = str(qname).rstrip('.')
-            
+
             # Handle SOA queries
             if qt == 'SOA' and self._is_valid_domain(domain_str):
                 self._handle_soa_query(reply, qname)
                 logger.info(f"Responded to SOA query for {qname}")
-            
+
             # Handle NS queries
             elif qt == 'NS' and self._is_valid_domain(domain_str):
                 self._handle_ns_query(reply, qname)
                 logger.info(f"Responded to NS query for {qname}")
-            
+
             # All other queries get NXDOMAIN
             else:
                 reply.header.rcode = 3  # NXDOMAIN
                 logger.info(f"Returning NXDOMAIN for {qt} query: {qname}")
-            
+
             return reply
-            
+
         except Exception as e:
             logger.error(f"Error resolving DNS request: {e}")
             # Return SERVFAIL on error
@@ -100,36 +98,24 @@ class BlackholeResolver(BaseResolver):
                 q=request.q,
             )
             return error_reply
-    
+
     def _is_valid_domain(self, qname: str) -> bool:
         """Check if domain is within our authoritative zone."""
         return qname == BASE_DOMAIN or qname.endswith(f".{BASE_DOMAIN}")
-    
+
     def _handle_soa_query(self, reply: DNSRecord, qname) -> None:
         """Add SOA record to the answer section."""
         reply.add_answer(
-            RR(
-                rname=qname,
-                rtype=QTYPE.SOA,
-                rclass=1,
-                ttl=DNS_TTL,
-                rdata=SOA_RECORD
-            )
+            RR(rname=qname, rtype=QTYPE.SOA, rclass=1, ttl=DNS_TTL, rdata=SOA_RECORD)
         )
-    
+
     def _handle_ns_query(self, reply: DNSRecord, qname) -> None:
         """Add NS records to the answer section."""
         for ns_record in NS_RECORDS:
             reply.add_answer(
-                RR(
-                    rname=qname,
-                    rtype=QTYPE.NS,
-                    rclass=1,
-                    ttl=DNS_TTL,
-                    rdata=ns_record
-                )
+                RR(rname=qname, rtype=QTYPE.NS, rclass=1, ttl=DNS_TTL, rdata=ns_record)
             )
-    
+
     def _add_soa_to_authority(self, reply: DNSRecord) -> None:
         """Add SOA record to the authority section."""
         reply.add_auth(
@@ -138,7 +124,7 @@ class BlackholeResolver(BaseResolver):
                 rtype=QTYPE.SOA,
                 rclass=1,
                 ttl=DNS_TTL,
-                rdata=SOA_RECORD
+                rdata=SOA_RECORD,
             )
         )
 
@@ -147,17 +133,17 @@ class BlackholeDNSServer:
     """
     DNS server that returns NXDOMAIN for all queries except NS and SOA.
     """
-    
+
     def __init__(
         self,
         address: str = "0.0.0.0",
         port: int = 53,
         tcp: bool = True,
-        udp: bool = True
+        udp: bool = True,
     ) -> None:
         """
         Initialize the DNS server.
-        
+
         Args:
             address: IP address to bind to
             port: Port to listen on
@@ -170,33 +156,27 @@ class BlackholeDNSServer:
         self.udp = udp
         self.resolver = BlackholeResolver()
         self.servers: list[DnslibDNSServer] = []
-        
+
     def start(self) -> None:
         """Start the DNS server."""
         logger.info(f"Starting Blackhole DNS server on {self.address}:{self.port}")
-        
+
         if self.udp:
             udp_server = DnslibDNSServer(
-                resolver=self.resolver,
-                address=self.address,
-                port=self.port,
-                tcp=False
+                resolver=self.resolver, address=self.address, port=self.port, tcp=False
             )
             self.servers.append(udp_server)
             udp_server.start_thread()
             logger.info(f"UDP server started on {self.address}:{self.port}")
-            
+
         if self.tcp:
             tcp_server = DnslibDNSServer(
-                resolver=self.resolver,
-                address=self.address,
-                port=self.port,
-                tcp=True
+                resolver=self.resolver, address=self.address, port=self.port, tcp=True
             )
             self.servers.append(tcp_server)
             tcp_server.start_thread()
             logger.info(f"TCP server started on {self.address}:{self.port}")
-    
+
     def stop(self) -> None:
         """Stop the DNS server."""
         logger.info("Stopping Blackhole DNS server")
@@ -209,24 +189,20 @@ class BlackholeDNSServer:
 def main() -> None:
     """Main entry point for the DNS server."""
     # Configure logging
-    logger.add("blackhole_dns.log", rotation="10 MB")
-    
+    logger.add("./log/blackhole_dns.log", rotation="10 MB")
+
     try:
         # Start the DNS server
-        server = BlackholeDNSServer(
-            address="0.0.0.0",
-            port=53,
-            tcp=True,
-            udp=True
-        )
+        server = BlackholeDNSServer(address="0.0.0.0", port=53, tcp=True, udp=True)
         server.start()
-        
+
         # Keep running until interrupted
         logger.info("Server running. Press Ctrl+C to stop.")
         import time
+
         while True:
             time.sleep(1)
-            
+
     except KeyboardInterrupt:
         logger.info("Received interrupt, shutting down...")
         if 'server' in locals():
