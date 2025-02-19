@@ -1,0 +1,1 @@
+sudo poetry run python -m src.blackhole
