@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "blackhole"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+loguru = "^0.7.2"
+dnslib = "^0.9.25"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+types-cachetools = "^5.5.0.20240820"
+types-toml = "^0.10.8.20240310"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
